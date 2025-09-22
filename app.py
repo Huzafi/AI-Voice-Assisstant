@@ -16,21 +16,28 @@ genai.configure(api_key=GEMINI_KEY)
 # Helper functions
 # -------------------------
 def voice_input():
-    r = sr.Recognizer()
-    try:
-        with sr.Microphone() as source:
-            print("🎤 Listening...")
-            r.adjust_for_ambient_noise(source, duration=0.4)
-            audio = r.listen(source, phrase_time_limit=12)
-        text = r.recognize_google(audio)
-        print("🗣 You said:", text)
-        return text
-    except sr.UnknownValueError:
-        print("❌ Could not understand audio")
-        return ""
-    except sr.RequestError as e:
-        print("⚠️ STT request error:", e)
-        return ""
+    audio_file = st.audio_input("🎤 Speak your query...")
+    if audio_file:
+        # Save temporary file
+        with open("temp_audio.wav", "wb") as f:
+            f.write(audio_file.getbuffer())
+
+        r = sr.Recognizer()
+        with sr.AudioFile("temp_audio.wav") as source:
+            audio = r.record(source)
+
+        try:
+            text = r.recognize_google(audio)
+            st.write("🗣 You said:", text)
+            return text
+        except sr.UnknownValueError:
+            st.warning("❌ Could not understand audio")
+            return ""
+        except sr.RequestError as e:
+            st.error(f"⚠️ STT request error: {e}")
+            return ""
+    return ""
+
 
 
 def llm_model_object(user_text: str, max_tokens: int = 1024) -> str:
