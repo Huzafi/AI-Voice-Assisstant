@@ -1,4 +1,5 @@
-streamlit>=1.26.0
-speechrecognition>=3.8.1
-google-generativeai>=0.1.0
-elevenlabs>=0.2.7
+streamlit==1.28.0
+speechrecognition==3.9.0
+google-generativeai==0.3.0
+elevenlabs==0.2.9
+pydub==0.25.1
