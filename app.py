@@ -4,7 +4,7 @@ import tempfile
 import speech_recognition as sr
 import streamlit as st
 import google.generativeai as genai
-from elevenlabs import ElevenLabs, generate
+from elevenlabs import ElevenLabs
 
 # -------------------------
 # Configure API keys
@@ -85,16 +85,17 @@ def text_to_speech_bytes_elevenlabs(text: str) -> io.BytesIO:
     if not text or not text.strip():
         text = "Sorry, I couldn't generate a response."
 
-    audio_data = generate(
+    # use the client instance
+    audio_data = eleven.generate(
         text=text,
         voice=ELEVENLABS_VOICE,
-        model="eleven_multilingual_v1",
-        api_key=ELEVENLABS_KEY
+        model="eleven_multilingual_v1"
     )
 
     mp3_fp = io.BytesIO(audio_data)
     mp3_fp.seek(0)
     return mp3_fp
+
 
 # -------------------------
 # Streamlit UI
