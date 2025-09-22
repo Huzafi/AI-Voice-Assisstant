@@ -4,7 +4,7 @@ import tempfile
 import speech_recognition as sr
 import streamlit as st
 import google.generativeai as genai
-from elevenlabs import set_api_key, generate, play, save
+from elevenlabs import ElevenLabs, generate
 
 # -------------------------
 # Configure API keys
@@ -19,18 +19,18 @@ if not ELEVENLABS_KEY or not ELEVENLABS_VOICE:
     raise RuntimeError("Set ELEVENLABS_API_KEY and ELEVENLABS_VOICE_ID in your .env file")
 
 genai.configure(api_key=GEMINI_KEY)
-set_api_key(ELEVENLABS_KEY)
+eleven = ElevenLabs(api_key=ELEVENLABS_KEY)
 
 # -------------------------
 # Helper functions
 # -------------------------
 def voice_input_streamlit():
     r = sr.Recognizer()
-    audio_data = st.audio_input("🎤 Speak your query...")
+    audio_file = st.file_uploader("Upload your voice (wav/mp3):", type=["wav", "mp3"])
 
-    if audio_data is not None:
+    if audio_file is not None:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
-            temp_audio.write(audio_data.getbuffer())
+            temp_audio.write(audio_file.read())
             temp_audio_path = temp_audio.name
 
         with sr.AudioFile(temp_audio_path) as source:
@@ -82,9 +82,6 @@ def llm_model_object(user_text: str, max_tokens: int = 1024) -> str:
         return str(response).strip()
 
 def text_to_speech_bytes_elevenlabs(text: str) -> io.BytesIO:
-    """
-    Convert text to speech using ElevenLabs TTS and return BytesIO object.
-    """
     if not text or not text.strip():
         text = "Sorry, I couldn't generate a response."
 
@@ -92,6 +89,7 @@ def text_to_speech_bytes_elevenlabs(text: str) -> io.BytesIO:
         text=text,
         voice=ELEVENLABS_VOICE,
         model="eleven_multilingual_v1",
+        api_key=ELEVENLABS_KEY
     )
 
     mp3_fp = io.BytesIO(audio_data)
