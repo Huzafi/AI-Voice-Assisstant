@@ -125,7 +125,7 @@ def text_to_speech_bytes(text: str) -> io.BytesIO:
 # -------------------------
 def main():
     st.set_page_config(page_title="AS AI Voice Assistant", layout="centered")
-    st.title("AS AI Voice Assistant 🤖")
+    st.title("AI Voice Assistant 🤖")
 
     mode = st.radio("Select input method:", ["Text", "Voice"])
 
