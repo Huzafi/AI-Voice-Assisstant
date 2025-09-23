@@ -4,48 +4,53 @@ import speech_recognition as sr
 from gtts import gTTS
 import google.generativeai as genai
 import streamlit as st
+from streamlit_webrtc import webrtc_streamer, WebRtcMode, AudioProcessorBase
 
-
+# -------------------------
+# API Key setup
+# -------------------------
 GEMINI_KEY = st.secrets["GEMINI_API_KEY"]
 
 if not GEMINI_KEY:
     raise RuntimeError("Set GEMINI_API_KEY in your .env file")
 genai.configure(api_key=GEMINI_KEY)
 
-# -------------------------
-# Helper functions
-# -------------------------
-def voice_input():
-    audio_file = st.audio_input("🎤 Speak your query...")
-    if audio_file:
-        # Save temporary file
-        with open("temp_audio.wav", "wb") as f:
-            f.write(audio_file.getbuffer())
 
-        r = sr.Recognizer()
-        with sr.AudioFile("temp_audio.wav") as source:
-            audio = r.record(source)
+# -------------------------
+# Voice input processor
+# -------------------------
+class AudioProcessor(AudioProcessorBase):
+    def __init__(self):
+        self.recognizer = sr.Recognizer()
+        self.text = ""
 
+    def recv_audio(self, frame):
+        # Convert WebRTC audio frame to sr.AudioData
+        audio_data = frame.to_ndarray().flatten().astype("int16")
+        audio = sr.AudioData(audio_data.tobytes(), frame.sample_rate, 2)
         try:
-            text = r.recognize_google(audio)
-            st.write("🗣 You said:", text)
-            return text
-        except sr.UnknownValueError:
-            st.warning("❌ Could not understand audio")
-            return ""
-        except sr.RequestError as e:
-            st.error(f"⚠️ STT request error: {e}")
-            return ""
+            self.text = self.recognizer.recognize_google(audio)
+        except Exception:
+            pass
+        return frame
+
+
+def voice_input():
+    ctx = webrtc_streamer(
+        key="speech-to-text",
+        mode=WebRtcMode.SENDONLY,
+        audio_processor_factory=AudioProcessor,
+        media_stream_constraints={"audio": True, "video": False},
+    )
+    if ctx.audio_processor:
+        return ctx.audio_processor.text
     return ""
 
 
-
+# -------------------------
+# LLM logic
+# -------------------------
 def llm_model_object(user_text: str, max_tokens: int = 1024) -> str:
-    """
-    Smart prompt for Gemini: decides whether to give short or detailed answers
-    based on user keywords like 'long', 'detailed', or 'briefly'.
-    """
-
     if not user_text or not user_text.strip():
         return "Please provide a question or text to explain."
 
@@ -57,7 +62,6 @@ def llm_model_object(user_text: str, max_tokens: int = 1024) -> str:
         "Answer briefly in 2-3 sentences."
     )
 
-    # If user asks for long/detailed
     if "long" in lower_text or "detailed" in lower_text:
         prompt = (
             "You are a helpful, thorough assistant. "
@@ -66,8 +70,6 @@ def llm_model_object(user_text: str, max_tokens: int = 1024) -> str:
             f"QUESTION OR TOPIC: {user_text}\n\n"
             "Answer in detail:"
         )
-
-    # If user asks for briefly
     elif "briefly" in lower_text:
         prompt = (
             f"QUESTION OR TOPIC: {user_text}\n\n"
@@ -85,7 +87,6 @@ def llm_model_object(user_text: str, max_tokens: int = 1024) -> str:
         ),
     )
 
-    # Robust extraction
     result = ""
     if hasattr(response, "text") and response.text:
         result = response.text
@@ -105,11 +106,10 @@ def llm_model_object(user_text: str, max_tokens: int = 1024) -> str:
     return result.strip()
 
 
-
+# -------------------------
+# TTS helper
+# -------------------------
 def text_to_speech_bytes(text: str) -> io.BytesIO:
-    """
-    Convert text to mp3 bytes in memory and return a BytesIO object.
-    """
     if not text or not text.strip():
         text = "Sorry, I couldn't generate a response."
 
@@ -118,6 +118,7 @@ def text_to_speech_bytes(text: str) -> io.BytesIO:
     tts.write_to_fp(mp3_fp)
     mp3_fp.seek(0)
     return mp3_fp
+
 
 # -------------------------
 # Streamlit app
@@ -132,16 +133,16 @@ def main():
     if mode == "Text":
         user_text = st.text_input("Type your question:")
     else:
-        if st.button("🎤 Speak"):
-            with st.spinner("Listening..."):
-                user_text = voice_input()
+        st.info("🎤 Click Start below and speak...")
+        user_text = voice_input()
+        if user_text:
+            st.write("🗣 You said:", user_text)
 
     if user_text:
         with st.spinner("Generating response..."):
             response = llm_model_object(user_text, max_tokens=1024)
             st.text_area("Response:", value=response, height=350)
 
-            # Convert to mp3 in-memory and play / download
             mp3_fp = text_to_speech_bytes(response)
             audio_bytes = mp3_fp.getvalue()
 
@@ -152,6 +153,7 @@ def main():
                 file_name="response.mp3",
                 mime="audio/mp3"
             )
+
 
 if __name__ == "__main__":
     main()
