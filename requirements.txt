@@ -2,3 +2,4 @@ streamlit
 SpeechRecognition
 gTTS
 google-generativeai
+streamlit-webrtc
