@@ -11,10 +11,17 @@ from streamlit_webrtc import webrtc_streamer, WebRtcMode, AudioProcessorBase
 # -------------------------
 GEMINI_KEY = st.secrets["GEMINI_API_KEY"]
 
-if not GEMINI_KEY:
-    raise RuntimeError("Set GEMINI_API_KEY in your .env file")
-genai.configure(api_key=GEMINI_KEY)
 
+if not GEMINI_KEY:
+    st.error("Google API key not found. Please set it in .env or Streamlit Secrets.")
+else:
+    genai.configure(api_key=GEMINI_KEY)
+
+try:
+    model = genai.GenerativeModel("gemini-1.5-flash")
+except Exception:
+    # fallback model
+    model = genai.GenerativeModel("gemini-1.5-pro")
 
 # -------------------------
 # Voice input processor
